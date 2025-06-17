@@ -2,23 +2,20 @@ trigger:
 - main
 
 pool:
-  name: SelfHosted
-
-variables:
-  buildConfiguration: 'Release'
+  name: SelfHosted  # Your registered agent name
 
 steps:
 - task: UseDotNet@2
   inputs:
     packageType: 'sdk'
-    version: '8.x'
-    installationPath: $(Agent.ToolsDirectory)/dotnet
+    version: '8.x.x'  # Adjust as needed
+  displayName: 'Use .NET 8 SDK'
 
-- script: dotnet restore MyDotNetApp/MyDotNetApp.csproj
-  displayName: 'Restore dependencies'
+- script: dotnet restore
+  displayName: 'Restore packages'
 
-- script: dotnet build MyDotNetApp/MyDotNetApp.csproj --configuration $(buildConfiguration)
-  displayName: 'Build project'
+- script: dotnet build --configuration Release
+  displayName: 'Build solution'
 
-- script: dotnet test --no-restore --verbosity normal
-  displayName: 'Run unit tests'
+- script: dotnet test --no-build --verbosity normal
+  displayName: 'Run tests'
