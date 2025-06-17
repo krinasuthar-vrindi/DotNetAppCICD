@@ -4,37 +4,20 @@ trigger:
 pool:
   name: SelfHosted  # Use your self-hosted agent pool
 
-variables:
-  buildConfiguration: 'Release'
-
 steps:
 # Use .NET 8 SDK (Latest patch version)
 - task: UseDotNet@2
   displayName: 'Use .NET 8 SDK'
   inputs:
-    version: 8.0.204
-    includePreviewVersions: false
+    packageType: 'sdk'
+    version: '8.x'
+    installationPath: $(Agent.ToolsDirectory)/dotnet
 
-# Restore NuGet packages
-- task: NuGetToolInstaller@1
-  displayName: 'Install NuGet'
+- script: dotnet restore MyDotNetApp/MyDotNetApp.csproj
+  displayName: 'Restore dependencies'
 
-- task: NuGetCommand@2
-  displayName: 'Restore NuGet Packages'
-  inputs:
-    restoreSolution: '**/*.sln'
+- script: dotnet build MyDotNetApp/MyDotNetApp.csproj --configuration $(buildConfiguration)
+  displayName: 'Build project'
 
-# Build the project
-- task: VSBuild@1
-  displayName: 'Build solution'
-  inputs:
-    solution: '**/*.sln'
-    platform: 'Any CPU'
-    configuration: '$(buildConfiguration)'
-
-# Run unit tests
-- task: VSTest@2
+- script: dotnet test --no-restore --verbosity normal
   displayName: 'Run unit tests'
-  inputs:
-    platform: 'Any CPU'
-    configuration: '$(buildConfiguration)'
