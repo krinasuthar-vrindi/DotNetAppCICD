@@ -6,6 +6,7 @@ pool:
 
 variables:
   buildConfiguration: 'Release'
+  publishDirectory: '$(Build.ArtifactStagingDirectory)\publish'
 
 steps:
 # Use .NET 8 SDK (Latest patch version)
@@ -38,3 +39,32 @@ steps:
   inputs:
     platform: 'Any CPU'
     configuration: '$(buildConfiguration)'
+
+# Publish the project
+- task: DotNetCoreCLI@2
+  displayName: 'Publish project'
+  inputs:
+    command: 'publish'
+    publishWebProjects: true
+    arguments: '--configuration $(buildConfiguration) --output $(publishDirectory)'
+    zipAfterPublish: false
+
+# Deploy to local IIS
+- task: PowerShell@2
+  displayName: 'Copy to IIS folder'
+  inputs:
+    targetType: 'inline'
+    script: |
+      $iisPath = "C:\inetpub\wwwroot\DotNetApp"
+      $sourcePath = "$(publishDirectory)"
+
+      if (Test-Path $iisPath) {
+          Write-Host "Clearing existing content at $iisPath"
+          Remove-Item "$iisPath\*" -Recurse -Force
+      } else {
+          Write-Host "Creating IIS folder at $iisPath"
+          New-Item -ItemType Directory -Path $iisPath
+      }
+
+      Write-Host "Copying published files to IIS..."
+      Copy-Item "$sourcePath\*" $iisPath -Recurse -Force
