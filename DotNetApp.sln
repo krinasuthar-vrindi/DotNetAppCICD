@@ -1,9 +1,14 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.12.35514.174 d17.12
+VisualStudioVersion = 17.12.35514.174
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DotNetApp", "DotNetApp\DotNetApp.csproj", "{873A1BC5-75B9-4F1B-AE0B-4C20410D72EC}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{1CBD1F10-15CC-4B67-8328-46FEEE404022}"
+	ProjectSection(SolutionItems) = preProject
+		vrn-selfhosted-pipeline.yml = vrn-selfhosted-pipeline.yml
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
