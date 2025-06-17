@@ -1,24 +1,40 @@
 trigger:
-- main
+- main  # Trigger pipeline on push to 'main' branch
 
 pool:
-  name: SelfHosted
+  name: SelfHosted  # Use your self-hosted agent pool
 
 variables:
   buildConfiguration: 'Release'
 
 steps:
+# Use .NET 8 SDK (Latest patch version)
 - task: UseDotNet@2
+  displayName: 'Use .NET 8 SDK'
   inputs:
-    packageType: 'sdk'
-    version: '8.x'
-    installationPath: $(Agent.ToolsDirectory)/dotnet
+    version: 8.0.204
+    includePreviewVersions: false
 
-- script: dotnet restore MyDotNetApp/MyDotNetApp.csproj
-  displayName: 'Restore dependencies'
+# Restore NuGet packages
+- task: NuGetToolInstaller@1
+  displayName: 'Install NuGet'
 
-- script: dotnet build MyDotNetApp/MyDotNetApp.csproj --configuration $(buildConfiguration)
-  displayName: 'Build project'
+- task: NuGetCommand@2
+  displayName: 'Restore NuGet Packages'
+  inputs:
+    restoreSolution: '**/*.sln'
 
-- script: dotnet test --no-restore --verbosity normal
+# Build the project
+- task: VSBuild@1
+  displayName: 'Build solution'
+  inputs:
+    solution: '**/*.sln'
+    platform: 'Any CPU'
+    configuration: '$(buildConfiguration)'
+
+# Run unit tests
+- task: VSTest@2
   displayName: 'Run unit tests'
+  inputs:
+    platform: 'Any CPU'
+    configuration: '$(buildConfiguration)'
