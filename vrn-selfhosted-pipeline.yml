@@ -38,3 +38,22 @@ steps:
   inputs:
     platform: 'Any CPU'
     configuration: '$(buildConfiguration)'
+
+# Publish the project
+- task: DotNetCoreCLI@2
+  displayName: 'Publish Application'
+  inputs:
+    command: 'publish'
+    publishWebProjects: true
+    arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)'
+    zipAfterPublish: false
+
+# Deploy to local IIS folder
+- task: PowerShell@2
+  displayName: 'Deploy to IIS'
+  inputs:
+    targetType: 'inline'
+    script: |
+      $source = "$(Build.ArtifactStagingDirectory)"
+      $destination = "C:\inetpub\wwwroot\AzureTestApp"
+      Copy-Item -Path "$source\*" -Destination $destination -Recurse -Force
