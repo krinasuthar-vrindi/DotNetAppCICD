@@ -1,4 +1,4 @@
-trigger:
+﻿trigger:
 - main  # Trigger pipeline on push to 'main' branch
 
 pool:
@@ -57,3 +57,20 @@ steps:
       $source = "$(Build.ArtifactStagingDirectory)"
       $destination = "C:\inetpub\wwwroot\AzureTestApp"
       Copy-Item -Path "$source\*" -Destination $destination -Recurse -Force
+
+#Solution 1: Run the Agent as Administrator
+#Your self-hosted agent needs elevated privileges to access the IIS directory. To do this:
+
+#Open Services (services.msc) on your agent machine.
+
+#Find your Azure Pipelines agent service.
+
+#Right-click → Properties → switch to the Log On tab.
+
+#Change it from Local System to a user account that:
+
+#Has Administrator rights.
+
+#Has write access to C:\inetpub\wwwroot.
+
+#Then restart the agent service to apply the changes.
