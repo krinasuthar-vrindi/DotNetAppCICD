@@ -76,8 +76,25 @@ steps:
       Get-WebAppPoolState -Name $appPoolName
 
 #For sending email 
-- task: Email@1
+- task: PowerShell@2
+  displayName: 'Send Email Notification via SMTP'
   inputs:
-    To: 'krina.suthar@vrindimail.com'
-    Subject: 'Deployment Status'
-    Body: 'The deployment has completed successfully.'
+    targetType: 'inline'
+    script: |
+      $smtpServer = "smtp.gmail.com"
+      $smtpFrom = "vrindi.test12@gmail.com"
+      $smtpTo = "krina.suthar@vrindimail.com"
+      $subject = "IIS Deployment Status"
+      $body = "✅ Deployment completed and IIS App Pool recycled successfully on $(Agent.MachineName)."
+
+      $message = New-Object system.net.mail.mailmessage
+      $message.from = $smtpFrom
+      $message.To.add($smtpTo)
+      $message.Subject = $subject
+      $message.Body = $body
+
+      $smtp = New-Object Net.Mail.SmtpClient($smtpServer, 587)
+      $smtp.EnableSSL = $true
+      $smtp.Credentials = New-Object System.Net.NetworkCredential("vrindi.test12@gmail.com", "z3jbCYuKSaU3n+3UryKqYw==")
+
+      $smtp.Send($message)
