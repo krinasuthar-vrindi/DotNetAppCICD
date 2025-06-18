@@ -58,12 +58,26 @@ steps:
       $destination = "C:\inetpub\wwwroot\AzureTestApp"
       Copy-Item -Path "$source\*" -Destination $destination -Recurse -Force
 
-# Recycle IIS App Pool
+# Recycle IIS App Pool with Status Logs
 - task: PowerShell@2
-  displayName: 'Recycle IIS App Pool'
+  displayName: 'Recycle IIS App Pool with Status Logs'
   inputs:
     targetType: 'inline'
     script: |
       Import-Module WebAdministration
       $appPoolName = "AzureTestApp"
+
+      Write-Host "App Pool Status BEFORE:"
+      Get-WebAppPoolState -Name $appPoolName
+
       Restart-WebAppPool -Name $appPoolName
+
+      Write-Host "App Pool Status AFTER:"
+      Get-WebAppPoolState -Name $appPoolName
+
+#For sending email 
+- task: Email@1
+  inputs:
+    To: 'krina.suthar@vrindimail.com'
+    Subject: 'Deployment Status'
+    Body: 'The deployment has completed successfully.'
