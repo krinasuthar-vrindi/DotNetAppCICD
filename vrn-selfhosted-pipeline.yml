@@ -95,6 +95,6 @@ steps:
 
       $smtp = New-Object Net.Mail.SmtpClient($smtpServer, 587)
       $smtp.EnableSSL = $true
-      $smtp.Credentials = New-Object System.Net.NetworkCredential("vrindi.test12@gmail.com", "z3jbCYuKSaU3n+3UryKqYw==")
+      $smtp.Credentials = New-Object System.Net.NetworkCredential("vrindi.test12@gmail.com", "onrutnfixnndvsgq")
 
       $smtp.Send($message)

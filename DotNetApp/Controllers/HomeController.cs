@@ -15,19 +15,22 @@ namespace DotNetApp.Controllers
 
         public IActionResult Index()
         {
-            _logger.LogInformation("Index View loading on 18 6 2025 3");
+            _logger.LogInformation("Index View loading at {Time}", DateTime.UtcNow);
             return View();
         }
 
         public IActionResult Privacy()
         {
+            _logger.LogDebug("Privacy View accessed at {Time}", DateTime.UtcNow);
             return View();
         }
 
         [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
         public IActionResult Error()
         {
-            return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
+            var requestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier;
+            _logger.LogError("Error View loaded. RequestId: {RequestId}", requestId);
+            return View(new ErrorViewModel { RequestId = requestId });
         }
     }
 }
