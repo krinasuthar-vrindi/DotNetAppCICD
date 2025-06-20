@@ -71,7 +71,6 @@ steps:
       Get-WebAppPoolState -Name $appPoolName
 
       Restart-WebAppPool -Name $appPoolName
-
       Write-Host "App Pool Status AFTER:"
       Get-WebAppPoolState -Name $appPoolName
 

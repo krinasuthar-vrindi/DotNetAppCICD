@@ -21,7 +21,7 @@ namespace DotNetApp.Controllers
 
         public IActionResult Privacy()
         {
-            _logger.LogDebug("Privacy View accessed at {Time}", DateTime.UtcNow);
+            _logger.LogDebug("Privacy View accessed at {Time} ", DateTime.UtcNow);
             return View();
         }
 
