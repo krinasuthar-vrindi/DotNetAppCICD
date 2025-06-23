@@ -15,7 +15,7 @@ namespace DotNetApp.Controllers
 
         public IActionResult Index()
         {
-            _logger.LogInformation("Index View loading at {Time}ngfh", DateTime.UtcNow);
+            _logger.LogInformation("Index View loading at {Time}ngfh gfhfgh", DateTime.UtcNow);
             return View();
         }
 
