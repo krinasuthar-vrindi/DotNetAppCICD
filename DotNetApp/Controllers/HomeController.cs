@@ -13,6 +13,7 @@ namespace DotNetApp.Controllers
             _logger = logger;
         }
 
+        //comment added
         public IActionResult Index()
         {
             _logger.LogInformation("Index View loading at {Time}ngfh gfhfgh", DateTime.UtcNow);
