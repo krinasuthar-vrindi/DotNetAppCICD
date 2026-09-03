@@ -6,8 +6,27 @@ pool:
 
 variables:
   buildConfiguration: 'Release'
+  appPoolName: 'AzureTestApp'
+  deployPath: 'C:\inetpub\wwwroot\AzureTestApp'
 
 steps:
+
+# ---------------------------------------------------------------
+# Log basic run info at the very start, so every run is traceable
+# ---------------------------------------------------------------
+- task: PowerShell@2
+  displayName: 'Log Pipeline Start Info'
+  inputs:
+    targetType: 'inline'
+    script: |
+      Write-Host "=========================================================="
+      Write-Host "Pipeline started : $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
+      Write-Host "Build number     : $(Build.BuildNumber)"
+      Write-Host "Agent machine    : $(Agent.MachineName)"
+      Write-Host "Branch           : $(Build.SourceBranchName)"
+      Write-Host "Commit           : $(Build.SourceVersion)"
+      Write-Host "=========================================================="
+
 # Use .NET 8 SDK (Latest patch version)
 - task: UseDotNet@2
   displayName: 'Use .NET 8 SDK'
@@ -31,6 +50,7 @@ steps:
     solution: '**/*.sln'
     platform: 'Any CPU'
     configuration: '$(buildConfiguration)'
+    msbuildArgs: '/v:normal'   # more detailed build output in the log
 
 # Run unit tests
 - task: VSTest@2
@@ -48,52 +68,142 @@ steps:
     arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)'
     zipAfterPublish: false
 
-# Deploy to local IIS folder
+# ---------------------------------------------------------------
+# Deploy to local IIS folder, with detailed before/after/error logs
+# ---------------------------------------------------------------
 - task: PowerShell@2
   displayName: 'Deploy to IIS'
   inputs:
     targetType: 'inline'
     script: |
+      $ErrorActionPreference = 'Stop'
       $source = "$(Build.ArtifactStagingDirectory)"
-      $destination = "C:\inetpub\wwwroot\AzureTestApp"
-      Copy-Item -Path "$source\*" -Destination $destination -Recurse -Force
+      $destination = "$(deployPath)"
 
-# Recycle IIS App Pool with Status Logs
+      Write-Host "---------------------------------------------------"
+      Write-Host "Deploy to IIS started at $(Get-Date -Format 'HH:mm:ss')"
+      Write-Host "Source      : $source"
+      Write-Host "Destination : $destination"
+
+      try {
+          if (-not (Test-Path $destination)) {
+              Write-Host "Destination folder not found - creating: $destination"
+              New-Item -ItemType Directory -Path $destination -Force | Out-Null
+          }
+
+          $filesToCopy = Get-ChildItem -Path $source -Recurse -File
+          Write-Host "File count to copy: $($filesToCopy.Count)"
+
+          Copy-Item -Path "$source\*" -Destination $destination -Recurse -Force
+
+          Write-Host "Deploy to IIS: SUCCESS - $($filesToCopy.Count) files copied at $(Get-Date -Format 'HH:mm:ss')"
+          Write-Host "##vso[task.setvariable variable=DeployStatus]Success"
+      }
+      catch {
+          Write-Host "##vso[task.logissue type=error]Deploy to IIS FAILED: $($_.Exception.Message)"
+          Write-Host "Deploy to IIS: FAILURE at $(Get-Date -Format 'HH:mm:ss')"
+          Write-Host "##vso[task.setvariable variable=DeployStatus]Failed"
+          Write-Host "##vso[task.setvariable variable=DeployError]$($_.Exception.Message)"
+          exit 1   # fail the pipeline so a broken deploy doesn't look green
+      }
+      Write-Host "---------------------------------------------------"
+
+# ---------------------------------------------------------------
+# Recycle IIS App Pool, with before/after state logs and verification
+# ---------------------------------------------------------------
 - task: PowerShell@2
   displayName: 'Recycle IIS App Pool with Status Logs'
   inputs:
     targetType: 'inline'
     script: |
+      $ErrorActionPreference = 'Stop'
       Import-Module WebAdministration
-      $appPoolName = "AzureTestApp"
+      $appPoolName = "$(appPoolName)"
 
-      Write-Host "App Pool Status BEFORE:"
-      Get-WebAppPoolState -Name $appPoolName
+      Write-Host "---------------------------------------------------"
+      Write-Host "Recycle App Pool started at $(Get-Date -Format 'HH:mm:ss')"
 
-      Restart-WebAppPool -Name $appPoolName
-      Write-Host "App Pool Status AFTER:"
-      Get-WebAppPoolState -Name $appPoolName
+      try {
+          $before = Get-WebAppPoolState -Name $appPoolName
+          Write-Host "App Pool status BEFORE : $($before.Value)"
 
-#For sending email 
+          Restart-WebAppPool -Name $appPoolName
+          Start-Sleep -Seconds 3
+
+          $after = Get-WebAppPoolState -Name $appPoolName
+          Write-Host "App Pool status AFTER  : $($after.Value)"
+
+          if ($after.Value -ne 'Started') {
+              throw "App pool '$appPoolName' is not 'Started' after recycle (actual: $($after.Value))"
+          }
+
+          Write-Host "Recycle App Pool: SUCCESS at $(Get-Date -Format 'HH:mm:ss')"
+          Write-Host "##vso[task.setvariable variable=RecycleStatus]Success"
+      }
+      catch {
+          Write-Host "##vso[task.logissue type=error]Recycle App Pool FAILED: $($_.Exception.Message)"
+          Write-Host "Recycle App Pool: FAILURE at $(Get-Date -Format 'HH:mm:ss')"
+          Write-Host "##vso[task.setvariable variable=RecycleStatus]Failed"
+          Write-Host "##vso[task.setvariable variable=RecycleError]$($_.Exception.Message)"
+          exit 1
+      }
+      Write-Host "---------------------------------------------------"
+
+# ---------------------------------------------------------------
+# Email notification - now always runs (even on failure) and reports
+# the real Deploy / Recycle status instead of a hardcoded message
+# ---------------------------------------------------------------
 - task: PowerShell@2
   displayName: 'Send Email Notification via SMTP'
+  condition: always()   # so you get notified on failures too, not just success
   inputs:
     targetType: 'inline'
     script: |
+      $deployStatus  = "$(DeployStatus)"
+      $recycleStatus = "$(RecycleStatus)"
+      if ([string]::IsNullOrEmpty($deployStatus))  { $deployStatus  = 'Did not run' }
+      if ([string]::IsNullOrEmpty($recycleStatus)) { $recycleStatus = 'Did not run' }
+
+      $pipelineResult = if ($deployStatus -eq 'Success' -and $recycleStatus -eq 'Success') { 'SUCCESS' } else { 'FAILURE' }
+
       $smtpServer = "smtp.gmail.com"
-      $smtpFrom = "vrindi.test12@gmail.com"
-      $smtpTo = "krina.suthar@vrindimail.com"
-      $subject = "IIS Deployment Status"
-      $body = "✅ Deployment completed and IIS App Pool recycled successfully on $(Agent.MachineName)."
+      $smtpFrom   = "vrindi.test12@gmail.com"
+      $smtpTo     = "krina.suthar@vrindimail.com"
+      $subject    = "IIS Deployment $pipelineResult - Build $(Build.BuildNumber)"
 
-      $message = New-Object system.net.mail.mailmessage
-      $message.from = $smtpFrom
-      $message.To.add($smtpTo)
-      $message.Subject = $subject
-      $message.Body = $body
+      $body = @"
+      Pipeline result   : $pipelineResult
+      Build number      : $(Build.BuildNumber)
+      Agent machine      : $(Agent.MachineName)
+      Branch             : $(Build.SourceBranchName)
+      Finished at        : $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
 
-      $smtp = New-Object Net.Mail.SmtpClient($smtpServer, 587)
-      $smtp.EnableSSL = $true
-      $smtp.Credentials = New-Object System.Net.NetworkCredential("vrindi.test12@gmail.com", "onrutnfixnndvsgq")
+      Deploy to IIS      : $deployStatus
+      Recycle App Pool   : $recycleStatus
+      "@
 
-      $smtp.Send($message)
+      Write-Host "---------------------------------------------------"
+      Write-Host "Sending email notification..."
+      Write-Host $body
+
+      try {
+          $message = New-Object system.net.mail.mailmessage
+          $message.from = $smtpFrom
+          $message.To.add($smtpTo)
+          $message.Subject = $subject
+          $message.Body = $body
+
+          $smtp = New-Object Net.Mail.SmtpClient($smtpServer, 587)
+          $smtp.EnableSSL = $true
+          # Password is read from a pipeline secret variable (SmtpPassword) instead of
+          # being stored in plain text in this file - set it under Pipeline > Edit > Variables,
+          # mark it "Keep this value secret", then reference it here as $(SmtpPassword).
+          $smtp.Credentials = New-Object System.Net.NetworkCredential($smtpFrom, "$(SmtpPassword)")
+
+          $smtp.Send($message)
+          Write-Host "Email notification: SENT successfully at $(Get-Date -Format 'HH:mm:ss')"
+      }
+      catch {
+          Write-Host "##vso[task.logissue type=warning]Email notification FAILED to send: $($_.Exception.Message)"
+      }
+      Write-Host "---------------------------------------------------"
